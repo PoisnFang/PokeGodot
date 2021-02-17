@@ -2,6 +2,9 @@ using Godot;
 using System;
 using Godot.Collections;
 using System.Net.Http;
+using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 
 public class Lobby : Control
 {
@@ -17,6 +20,9 @@ public class Lobby : Control
 
     public override void _Ready()
     {
+        System.Net.ServicePointManager.ServerCertificateValidationCallback =
+                new System.Net.Security.RemoteCertificateValidationCallback(delegate { return true; });
+
         // Get nodes - the generic is a class, argument is node path.
         _address = GetNode<LineEdit>("Address");
         _hostButton = GetNode<Button>("HostButton");
@@ -111,6 +117,7 @@ public class Lobby : Control
     private void OnHostPressed()
     {
         GetDitto();
+
         _peer = new NetworkedMultiplayerENet();
         _peer.CompressionMode = NetworkedMultiplayerENet.CompressionModeEnum.RangeCoder;
         Error err = _peer.CreateServer(DefaultPort, MaxNumberOfPeers);
@@ -129,11 +136,25 @@ public class Lobby : Control
 
     private async void GetDitto()
     {
-        HttpClient client = new HttpClient();
-        var response = await client.GetAsync("https://pokeapi.co/api/v2/pokemon/ditto");
-        response.EnsureSuccessStatusCode();
-        var pokemon = await response.Content.ReadAsStringAsync();
-        GD.Print(pokemon);
+        try
+        {
+            HttpClientHandler handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (a, b, c, d) => { return true; }
+            };
+
+            HttpClient client = new HttpClient();
+            var response = await client.GetAsync("https://pokeapi.co/api/v2/pokemon/ditto");
+            response.EnsureSuccessStatusCode();
+            var pokemon = await response.Content.ReadAsStringAsync();
+            GD.Print(pokemon);
+        }
+        catch (Exception e)
+        {
+            GD.Print("Error!");
+
+            GD.Print(e.InnerException);
+        }
     }
 
     private void OnJoinPressed()
